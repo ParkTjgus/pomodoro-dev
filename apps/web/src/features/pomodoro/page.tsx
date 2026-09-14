@@ -1,5 +1,5 @@
-import wall from '@/assets/wall.png';
-import floor from '@/assets/floor.png';
+import wall from '@/assets/wall.webp';
+import floor from '@/assets/floor.webp';
 import Desk from '@/assets/desk.svg?react';
 import Lamp from '@/assets/lamp.svg?react';
 import Shelf from '@/assets/shelf.svg?react';
