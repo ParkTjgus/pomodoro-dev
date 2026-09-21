@@ -64,6 +64,26 @@ describe('ParticipantTest', () => {
     expect(participant.nickname).toBe(expectedNickname);
   });
 
+  it('자음과 모음만으로 이루어진 닉네임으로 변경할 수 있다.', () => {
+    // given
+    const participantId = 'id';
+    const currentNickname = '케첩';
+    const joinedAt = '2026-09-02T00:00:00.000Z';
+    const participant = Participant.create(
+      participantId,
+      currentNickname,
+      joinedAt,
+    );
+    const newNickname = 'ㅋㅋㅜㅜ';
+
+    // when
+    participant.changeNickname(newNickname);
+
+    // then
+    const expectedNickname = newNickname;
+    expect(participant.nickname).toBe(expectedNickname);
+  });
+
   it('닉네임이 1자 이상 10자 이내면 변경할 수 있다.', () => {
     // given
     const participantId = 'id';
