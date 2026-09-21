@@ -12,7 +12,7 @@ describe('ParticipantTest', () => {
     const participant = Participant.create(participantId, nickname, joinedAt);
 
     // then
-    const expectedNickname = nickname
+    const expectedNickname = nickname;
     expect(participant.nickname).toBe(expectedNickname);
   });
 
@@ -60,7 +60,7 @@ describe('ParticipantTest', () => {
     participant.changeNickname(newNickname);
 
     // then
-    const expectedNickname = newNickname
+    const expectedNickname = newNickname;
     expect(participant.nickname).toBe(expectedNickname);
   });
 
@@ -74,14 +74,14 @@ describe('ParticipantTest', () => {
       currentNickname,
       joinedAt,
     );
-    const nameLength = 10
+    const nameLength = 10;
     const newNickname = '가'.repeat(nameLength);
 
     // when
     participant.changeNickname(newNickname);
 
     // then
-    const expectedNickname = newNickname
+    const expectedNickname = newNickname;
     expect(participant.nickname).toBe(expectedNickname);
   });
 
@@ -95,8 +95,8 @@ describe('ParticipantTest', () => {
       currentNickname,
       joinedAt,
     );
-    const nameLength = 11
-    const newNickname = '가'.repeat(nameLength); 
+    const nameLength = 11;
+    const newNickname = '가'.repeat(nameLength);
 
     // when & then
     const expectedMessage = '닉네임은 1자 이상 10자 이내입니다.';
@@ -172,7 +172,7 @@ describe('ParticipantTest', () => {
       currentNickname,
       joinedAt,
     );
-    const nameLength = 11
+    const nameLength = 11;
     const invalidNickname = '가'.repeat(nameLength);
 
     // when
@@ -181,7 +181,7 @@ describe('ParticipantTest', () => {
     );
 
     // then
-    const expectedNickname = currentNickname
+    const expectedNickname = currentNickname;
     expect(participant.nickname).toBe(expectedNickname);
   });
 });
