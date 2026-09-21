@@ -6,6 +6,7 @@ import { TimerService } from './service/timer.service';
 import { EnterRoomService } from './service/enter-room.service';
 import { RoomQueryService } from './service/room-query.service';
 import { CreateParticipantService } from './service/create-participant.service';
+import { ChangeNicknameService } from './service/change-nickname.service';
 import { RoomRepository } from './repository/room.repository';
 import { InMemoryRoomRepository } from './repository/in-memory.room.repository';
 
@@ -17,6 +18,7 @@ import { InMemoryRoomRepository } from './repository/in-memory.room.repository';
     EnterRoomService,
     RoomQueryService,
     CreateParticipantService,
+    ChangeNicknameService,
     { provide: RoomRepository, useClass: InMemoryRoomRepository },
   ],
   exports: [SseService],
