@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { RoomQueryService } from './room-query.service';
 import { RoomRepository } from '../repository/room.repository';
 import { SseService } from './sse.service';
-import { toRoomState } from '../dto/room.mapper';
+import { RoomDto } from '../dto/room.dto';
 
 @Injectable()
 export class ChangeNicknameService {
@@ -24,7 +24,7 @@ export class ChangeNicknameService {
 
     this.sseService.emit(roomId, {
       type: 'room_state',
-      data: toRoomState(room),
+      data: RoomDto.fromEntity(room),
     });
   }
 }
