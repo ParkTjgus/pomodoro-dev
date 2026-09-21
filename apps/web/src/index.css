@@ -42,14 +42,39 @@
       transform: translateX(3px);
     }
   }
+
+  --cursor-default: url('./assets/cursor_default.svg') 4 4, default;
+  --cursor-pointer: url('./assets/cursor_pointer.svg') 4 4, pointer;
+  --cursor-grab: url('./assets/cursor_grab.svg') 4 4, grab;
+  --cursor-grabbing: url('./assets/cursor_grabbing.svg') 4 4, grabbing;
+  --cursor-text: url('./assets/cursor_text.svg') 4 4, text;
+}
+
+body {
+  @apply cursor-default font-dearfromsol text-black;
+}
+
+button,
+a {
+  @apply cursor-pointer;
+}
+
+input[type='text'] {
+  @apply cursor-text;
+}
+
+@keyframes note-slide {
+  0% { transform: translateX(0); }
+  33.33% { transform: translateX(-128px); }
+  66.66% { transform: translateX(-256px); }
+}
+
+.note-animation {
+  animation: note-slide 1.5s steps(1) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .animate-shake {
     animation: none;
   }
-}
-
-body {
-  @apply font-dearfromsol text-black;
 }

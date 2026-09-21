@@ -22,8 +22,11 @@ export class PomodoroController {
   ) {}
 
   @Post('room/:roomId/participant')
-  enterRoom(@Param('roomId') roomId: string): JoinRoomResponse {
-    return this.enterRoomService.joinRoom(roomId);
+  enterRoom(
+    @Param('roomId') roomId: string,
+    @Body('participantId') participantId?: string,
+  ): JoinRoomResponse {
+    return this.enterRoomService.joinRoom(roomId, participantId);
   }
 
   @Patch('room/:roomId/participant/:participantId/nickname')
