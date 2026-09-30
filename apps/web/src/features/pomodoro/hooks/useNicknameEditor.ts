@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { changeNickname } from '@/api/room';
+import { NICKNAME_MAX_LENGTH } from '@pomodoro/shared';
 
 interface NicknameEditing {
   draft: string;
@@ -79,7 +80,15 @@ export function useNicknameEditor({
     error: editing?.error ?? null,
     startEditing: () => setEditing({ draft: displayedNickname, error: null }),
     changeDraft: (draft: string) =>
-      setEditing((current) => current && { ...current, draft }),
+      setEditing((current) => {
+        if (!current) return current;
+        if (draft.length > NICKNAME_MAX_LENGTH)
+          return {
+            ...current,
+            error: `닉네임은 ${NICKNAME_MAX_LENGTH}자 이내입니다.`,
+          };
+        return { draft, error: null };
+      }),
     cancelEditing: () => setEditing(null),
     confirmEditing,
   };
