@@ -1,10 +1,11 @@
 import type { Room as RoomState } from '@pomodoro/shared';
-import { ChangeNicknameService } from './change-nickname.service';
-import { RoomQueryService } from './room-query.service';
-import { SseService } from './sse.service';
-import { InMemoryRoomRepository } from '../repository/in-memory.room.repository';
-import { Room } from '../domain/room.entity';
-import { Participant } from '../domain/participant.entity';
+import { ChangeNicknameService } from '../../../src/pomodoro/service/change-nickname.service';
+import { RoomQueryService } from '../../../src/pomodoro/service/room-query.service';
+import { SseService } from '../../../src/pomodoro/service/sse.service';
+import { InMemoryRoomRepository } from '../../../src/pomodoro/repository/in-memory.room.repository';
+import { Room } from '../../../src/pomodoro/domain/room.entity';
+import { Participant } from '../../../src/pomodoro/domain/participant.entity';
+import { NotFoundException } from '@nestjs/common';
 
 describe('ChangeNicknameService', () => {
   it('닉네임을 변경하면 저장소에 반영된다.', () => {
@@ -135,7 +136,7 @@ describe('ChangeNicknameService', () => {
     ).toBe(expectedNickname);
   });
 
-  it('존재하지 않는 방의 닉네임은 변경할 수 없다.', () => {
+  it('존재하지 않는 방의 참여자는 닉네임을 변경할 수 없다.', () => {
     // given
     const unknownRoomId = 'unknownRoomId';
     const participantId = 'A';
@@ -148,10 +149,9 @@ describe('ChangeNicknameService', () => {
     const newNickname = '마요';
 
     // when & then
-    const expectedMessage = '존재하지 않는 방입니다.';
     expect(() =>
       service.changeNickname(unknownRoomId, participantId, newNickname),
-    ).toThrow(expectedMessage);
+    ).toThrow(NotFoundException);
   });
 
   it('동일한 닉네임으로 동시에 변경을 요청하면 하나만 성공한다.', async () => {
