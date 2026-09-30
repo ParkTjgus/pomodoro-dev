@@ -24,9 +24,9 @@ export async function enterRoom(
 
 // TODO: shared dto로 ErrorResponse 정의 필요
 interface ErrorResponse { 
-  statusCode: number, 
-  message: string,
-  error: string
+  statusCode: number;
+  message: string;
+  error: string;
 }
 
 export async function changeNickname(
