@@ -20,9 +20,12 @@ const openInviteCodeInput = () => {
 };
 
 const enterWithCode = (code: string) => {
-  fireEvent.change(screen.getByPlaceholderText('초대 링크(코드)를 입력하세요'), {
-    target: { value: code },
-  });
+  fireEvent.change(
+    screen.getByPlaceholderText('초대 링크(코드)를 입력하세요'),
+    {
+      target: { value: code },
+    },
+  );
   fireEvent.click(screen.getByRole('button', { name: '입장하기' }));
 };
 
