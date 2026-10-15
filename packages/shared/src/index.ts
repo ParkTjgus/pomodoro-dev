@@ -8,3 +8,4 @@ export * from './types/participant';
 export * from './types/sse-event';
 export * from './dto/response/music-response.dto';
 export * from './dto/response/create-room-response.dto';
+export * from './dto/response/exists-room-response.dto';
