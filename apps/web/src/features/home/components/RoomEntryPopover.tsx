@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { EntryOptionButton } from './EntryOptionButton';
-import { createRoom } from '@/api/room';
+import { createRoom, existsRoom } from '@/api/room';
+import { useShake } from '@/hooks/useShake';
 import { cn } from '@/lib/cn';
 import { goToRoom } from '@/lib/room-id';
 
@@ -9,13 +10,14 @@ type Step = 'option' | 'input';
 export function RoomEntryPopover() {
   const [step, setStep] = useState<Step>('option');
   const [inviteCode, setInviteCode] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
+  const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { ref, shake } = useShake<HTMLDivElement>();
 
   const handleCreateRoom = async () => {
-    if (isCreating) return;
+    if (isPending) return;
 
-    setIsCreating(true);
+    setIsPending(true);
     setError(null);
 
     try {
@@ -23,27 +25,51 @@ export function RoomEntryPopover() {
       goToRoom(roomId);
     } catch {
       setError('방 생성에 실패했습니다.');
-      setIsCreating(false);
+    } finally {
+      setIsPending(false);
     }
   };
 
-  const handleEnterRoom = () => {
+  const rejectEntry = (message: string) => {
+    setError(message);
+    shake();
+  };
+
+  const handleEnterRoom = async () => {
+    if (isPending) return;
+
     const roomId = inviteCode.trim();
 
     if (!roomId) {
-      setError('초대 링크(코드)를 입력해 주세요.');
+      rejectEntry('초대 링크(코드)를 입력해 주세요.');
       return;
     }
 
-    goToRoom(roomId);
+    setIsPending(true);
+
+    try {
+      const { exists } = await existsRoom(roomId);
+
+      if (!exists) {
+        rejectEntry('찾을 수 없는 방입니다.');
+        return;
+      }
+
+      goToRoom(roomId);
+    } catch {
+      rejectEntry('잠시 후 다시 시도해 주세요.');
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (
     /* TODO: 추후 squiggle 라이브러리 배포 시 말풍선으로 교체 */
     <div
+      ref={ref}
       className={cn(
         'absolute -top-3 left-1/2 flex -translate-x-1/2 -translate-y-full flex-col gap-3 rounded-2xl border-4 bg-white px-4 py-3',
-        error ? 'animate-shake border-error' : 'border-black',
+        error ? 'border-error' : 'border-black',
       )}
     >
       {error && (
@@ -55,7 +81,7 @@ export function RoomEntryPopover() {
         <>
           <div className="text-2xl text-nowrap">어디서 공부할까요?</div>
           <EntryOptionButton onClick={handleCreateRoom}>
-            {isCreating ? '방 만드는 중...' : '새로운 방 만들기'}
+            {isPending ? '방 만드는 중...' : '새로운 방 만들기'}
           </EntryOptionButton>
           <EntryOptionButton
             onClick={() => {

@@ -1,4 +1,8 @@
-import type { Room, CreateRoomResponse } from '@pomodoro/shared';
+import type {
+  Room,
+  CreateRoomResponse,
+  ExistsRoomResponse,
+} from '@pomodoro/shared';
 
 export interface JoinRoomResponse {
   participant: { id: string; nickname: string };
@@ -63,4 +67,16 @@ export async function createRoom(): Promise<CreateRoomResponse> {
   const data: CreateRoomResponse = await response.json();
 
   return data;
+}
+
+export async function existsRoom(roomId: string): Promise<ExistsRoomResponse> {
+  const response = await fetch(
+    `/api/pomodoro/room/${encodeURIComponent(roomId)}/exists`,
+  );
+
+  if (!response.ok) {
+    throw new Error('방을 확인하지 못했습니다.');
+  }
+
+  return response.json() as Promise<ExistsRoomResponse>;
 }
