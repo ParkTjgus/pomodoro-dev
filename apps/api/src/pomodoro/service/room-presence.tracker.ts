@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { LeaveRoomService } from './leave-room.service';
+import { SSE_RETRY_MS } from './sse.service';
 
-const GRACE_PERIOD_MS = 10000;
+const GRACE_PERIOD_MS = SSE_RETRY_MS * 2;
 
 @Injectable()
 export class RoomPresenceTracker {
