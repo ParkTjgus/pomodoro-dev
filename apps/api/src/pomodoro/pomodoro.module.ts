@@ -7,7 +7,6 @@ import { EnterRoomService } from './service/enter-room.service';
 import { RoomQueryService } from './service/room-query.service';
 import { RoomPresenceService } from './service/room-presence.service';
 import { RoomEventStreamService } from './service/room-event-stream.service';
-import { CreateParticipantService } from './service/create-participant.service';
 import { ChangeNicknameService } from './service/change-nickname.service';
 import { ChangeStatusMessageService } from './service/change-status-message.service';
 import { RoomRepository } from './repository/room.repository';
@@ -27,7 +26,6 @@ import { MetricsModule } from '../metrics/metrics.module';
     RoomQueryService,
     RoomPresenceService,
     RoomEventStreamService,
-    CreateParticipantService,
     ChangeNicknameService,
     CreateRoomService,
     ChangeStatusMessageService,

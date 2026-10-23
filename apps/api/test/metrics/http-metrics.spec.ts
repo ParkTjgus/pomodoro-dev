@@ -135,16 +135,16 @@ describe('HTTP 요청 메트릭', () => {
   });
 
   it('SSE 요청은 HTTP 메트릭에 집계되지 않는다', async () => {
-    // given: 연결이 유지되는 정상 SSE는 끊길 때 finish가 발생하지 않으므로, 즉시 끝나는 404로 제외 규칙을 검증한다
+    // given: 연결이 유지되는 정상 SSE는 끊길 때 finish가 발생하지 않으므로, 세션 없이 요청해 즉시 끝나는 401로 제외 규칙을 검증한다
     const unknownRoomId = 'no-such-room';
 
     // when
     const response = await request(app.getHttpServer()).get(
-      `/sse/pomodoro/${unknownRoomId}?participantId=nobody`,
+      `/sse/pomodoro/${unknownRoomId}`,
     );
 
     // then
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(401);
     expect(
       await readMetricValue(registry, HTTP_REQUESTS, {
         route: '/sse/pomodoro/:roomId',
