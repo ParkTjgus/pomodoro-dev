@@ -12,6 +12,8 @@ import { ChangeNicknameService } from './service/change-nickname.service';
 import { ChangeStatusMessageService } from './service/change-status-message.service';
 import { RoomRepository } from './repository/room.repository';
 import { InMemoryRoomRepository } from './repository/in-memory.room.repository';
+import { TimerScheduler } from './scheduler/timer.scheduler';
+import { InMemoryTimerScheduler } from './scheduler/in-memory.timer.scheduler';
 import { CreateRoomService } from './service/create-room.service';
 
 @Module({
@@ -28,6 +30,7 @@ import { CreateRoomService } from './service/create-room.service';
     CreateRoomService,
     ChangeStatusMessageService,
     { provide: RoomRepository, useClass: InMemoryRoomRepository },
+    { provide: TimerScheduler, useClass: InMemoryTimerScheduler },
   ],
   exports: [SseService],
 })
