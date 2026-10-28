@@ -8,10 +8,13 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import { TimerService } from '../service/timer.service';
+import { ParticipantId } from '../../auth/decorator/participant-id.decorator';
 import { EnterRoomService } from '../service/enter-room.service';
 import { ChangeNicknameService } from '../service/change-nickname.service';
 import { ChangeStatusMessageService } from '../service/change-status-message.service';
+import { StartPomodoroService } from '../service/start-pomodoro.service';
+import { PausePomodoroService } from '../service/pause-pomodoro.service';
+import { ResumePomodoroService } from '../service/resume-pomodoro.service';
 import type { JoinRoomResponse } from '../dto/join-room-response.dto';
 import type { ChangeNicknameRequest } from '../dto/change-nickname-request.dto';
 import { CreateRoomService } from '../service/create-room.service';
@@ -22,12 +25,14 @@ import type { ChangeStatusMessageRequest } from '../dto/change-status-message-re
 @Controller('pomodoro')
 export class PomodoroController {
   constructor(
-    private readonly timerService: TimerService,
     private readonly enterRoomService: EnterRoomService,
     private readonly changeNicknameService: ChangeNicknameService,
     private readonly createRoomService: CreateRoomService,
     private readonly roomQueryService: RoomQueryService,
     private readonly changeStatusMessageService: ChangeStatusMessageService,
+    private readonly startPomodoroService: StartPomodoroService,
+    private readonly pausePomodoroService: PausePomodoroService,
+    private readonly resumePomodoroService: ResumePomodoroService,
   ) {}
 
   @Get('room/:roomId/exists')
@@ -38,16 +43,16 @@ export class PomodoroController {
   @Post('room/:roomId/participant')
   enterRoom(
     @Param('roomId') roomId: string,
-    @Body('participantId') participantId?: string,
+    @ParticipantId() participantId: string,
   ): JoinRoomResponse {
     return this.enterRoomService.joinRoom(roomId, participantId);
   }
 
-  @Patch('room/:roomId/participant/:participantId/nickname')
+  @Patch('room/:roomId/participant/nickname')
   @HttpCode(HttpStatus.NO_CONTENT)
   changeNickname(
     @Param('roomId') roomId: string,
-    @Param('participantId') participantId: string,
+    @ParticipantId() participantId: string,
     @Body() body: ChangeNicknameRequest,
   ): void {
     this.changeNicknameService.changeNickname(
@@ -62,11 +67,11 @@ export class PomodoroController {
     return { roomId: this.createRoomService.create() };
   }
 
-  @Patch('room/:roomId/participant/:participantId/status-message')
+  @Patch('room/:roomId/participant/status-message')
   @HttpCode(HttpStatus.NO_CONTENT)
   changeStatusMessage(
     @Param('roomId') roomId: string,
-    @Param('participantId') participantId: string,
+    @ParticipantId() participantId: string,
     @Body() body: ChangeStatusMessageRequest,
   ): void {
     this.changeStatusMessageService.changeStatusMessage(
@@ -74,5 +79,32 @@ export class PomodoroController {
       participantId,
       body.statusMessage,
     );
+  }
+
+  @Post('room/:roomId/participant/pomodoro-start')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  startPomodoro(
+    @Param('roomId') roomId: string,
+    @ParticipantId() participantId: string,
+  ): void {
+    this.startPomodoroService.startPomodoro(roomId, participantId);
+  }
+
+  @Post('room/:roomId/participant/pomodoro-pause')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  pausePomodoro(
+    @Param('roomId') roomId: string,
+    @ParticipantId() participantId: string,
+  ): void {
+    this.pausePomodoroService.pausePomodoro(roomId, participantId);
+  }
+
+  @Post('room/:roomId/participant/pomodoro-resume')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  resumePomodoro(
+    @Param('roomId') roomId: string,
+    @ParticipantId() participantId: string,
+  ): void {
+    this.resumePomodoroService.resumePomodoro(roomId, participantId);
   }
 }

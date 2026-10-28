@@ -1,7 +1,69 @@
-import { BadRequestException } from '@nestjs/common';
-import { ROOM_MODE } from '@pomodoro/shared';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  BREAK_DURATION_SECONDS,
+  CYCLE_COUNT,
+  FOCUS_DURATION_SECONDS,
+  ROOM_MODE,
+  type RoomMode,
+} from '@pomodoro/shared';
 import { Room } from '../../../src/pomodoro/domain/room.entity';
 import { Participant } from '../../../src/pomodoro/domain/participant.entity';
+import { Timer } from '../../../src/pomodoro/domain/timer.entity';
+
+const ROOM_ID = 'room-1';
+const PARTICIPANT_ID = 'participant-1';
+const ROOM_CAPACITY = 4;
+const JOINED_AT = '2026-09-02T00:00:00.000Z';
+
+function idleTimer(): Timer {
+  return Timer.restore({
+    status: 'IDLE',
+    focusTimeSec: FOCUS_DURATION_SECONDS,
+    breakTimeSec: BREAK_DURATION_SECONDS,
+    totalCycle: CYCLE_COUNT,
+    timerStartedAt: null,
+    remainingTimeSec: FOCUS_DURATION_SECONDS,
+  });
+}
+
+function runningTimer(timerStartedAt: string, remainingTimeSec: number): Timer {
+  return Timer.restore({
+    status: 'RUNNING',
+    focusTimeSec: FOCUS_DURATION_SECONDS,
+    breakTimeSec: BREAK_DURATION_SECONDS,
+    totalCycle: CYCLE_COUNT,
+    timerStartedAt,
+    remainingTimeSec,
+  });
+}
+
+function pausedTimer(remainingTimeSec: number): Timer {
+  return Timer.restore({
+    status: 'PAUSED',
+    focusTimeSec: FOCUS_DURATION_SECONDS,
+    breakTimeSec: BREAK_DURATION_SECONDS,
+    totalCycle: CYCLE_COUNT,
+    timerStartedAt: null,
+    remainingTimeSec,
+  });
+}
+
+function restoreRoom(props: {
+  mode: RoomMode;
+  currentCycle: number;
+  timer: Timer;
+}): Room {
+  return Room.restore({
+    roomId: ROOM_ID,
+    participants: [Participant.create(PARTICIPANT_ID, '케첩', JOINED_AT)],
+    capacity: ROOM_CAPACITY,
+    ...props,
+  });
+}
 
 describe('Room', () => {
   it('방 생성 시 기본 모드는 IDLE 이다.', () => {
@@ -276,6 +338,380 @@ describe('Room', () => {
     const expectedStatusMessage = '집중 중';
     expect(room.participants.get(participantId)?.statusMessage).toBe(
       expectedStatusMessage,
+    );
+  });
+
+  describe('startPomodoro', () => {
+    it('대기 중인 방에서 시작하면 1회차 집중이 지금 시각부터 집중 시간만큼 진행된다', () => {
+      // given
+      const room = restoreRoom({
+        mode: ROOM_MODE.IDLE,
+        currentCycle: 0,
+        timer: idleTimer(),
+      });
+      const now = new Date('2026-10-17T09:00:00.000Z');
+
+      // when
+      room.startPomodoro(PARTICIPANT_ID, now);
+
+      // then
+      expect(room.mode).toBe(ROOM_MODE.FOCUS);
+      expect(room.currentCycle).toBe(1);
+      expect(room.timer.status).toBe('RUNNING');
+      expect(room.timer.timerStartedAt).toBe('2026-10-17T09:00:00.000Z');
+      expect(room.timer.remainingTimeSec).toBe(FOCUS_DURATION_SECONDS);
+    });
+
+    it.each([
+      {
+        mode: ROOM_MODE.FOCUS,
+        createTimer: () =>
+          runningTimer('2026-10-17T09:00:00.000Z', FOCUS_DURATION_SECONDS),
+      },
+      {
+        mode: ROOM_MODE.BREAK,
+        createTimer: () =>
+          runningTimer('2026-10-17T09:25:00.000Z', FOCUS_DURATION_SECONDS),
+      },
+      { mode: ROOM_MODE.FOCUS, createTimer: () => pausedTimer(600) },
+    ])(
+      '$mode 상태의 방은 진행 중이든 일시정지 중이든 뽀모도로를 시작할 수 없다',
+      ({ mode, createTimer }) => {
+        // given
+        const room = restoreRoom({
+          mode,
+          currentCycle: 2,
+          timer: createTimer(),
+        });
+        const now = new Date('2026-10-17T09:30:00.000Z');
+
+        // when & then
+        expect(() => room.startPomodoro(PARTICIPANT_ID, now)).toThrow(
+          ConflictException,
+        );
+        expect(room.mode).toBe(mode);
+        expect(room.currentCycle).toBe(2);
+        expect(room.timer).toEqual(createTimer());
+      },
+    );
+
+    it('방에 없는 참가자는 뽀모도로를 시작할 수 없다', () => {
+      // given
+      const room = restoreRoom({
+        mode: ROOM_MODE.IDLE,
+        currentCycle: 0,
+        timer: idleTimer(),
+      });
+      const unknownParticipantId = 'unknown-participant';
+      const now = new Date('2026-10-17T09:00:00.000Z');
+
+      // when & then
+      expect(() => room.startPomodoro(unknownParticipantId, now)).toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('pausePomodoro', () => {
+    it('진행 중인 방을 일시정지하면 모드와 회차는 그대로이고 타이머가 그 순간의 남은 시간에서 멈춘다', () => {
+      // given
+      const room = restoreRoom({
+        mode: ROOM_MODE.FOCUS,
+        currentCycle: 2,
+        timer: runningTimer('2026-10-17T09:00:00.000Z', FOCUS_DURATION_SECONDS),
+      });
+      const now = new Date('2026-10-17T09:10:00.000Z');
+
+      // when
+      room.pausePomodoro(PARTICIPANT_ID, now);
+
+      // then
+      expect(room.mode).toBe(ROOM_MODE.FOCUS);
+      expect(room.currentCycle).toBe(2);
+      expect(room.timer).toEqual(pausedTimer(FOCUS_DURATION_SECONDS - 600));
+    });
+
+    it.each([
+      { now: '2026-10-17T09:15:00.500Z', expected: 600 },
+      { now: '2026-10-17T09:24:59.999Z', expected: 1 },
+    ])(
+      '남은 시간에 1초 미만이 있으면 화면에 보이던 초(올림)에서 멈춘다 (now: $now → $expected초)',
+      ({ now, expected }) => {
+        // given
+        const room = restoreRoom({
+          mode: ROOM_MODE.FOCUS,
+          currentCycle: 1,
+          timer: runningTimer(
+            '2026-10-17T09:00:00.000Z',
+            FOCUS_DURATION_SECONDS,
+          ),
+        });
+
+        // when
+        room.pausePomodoro(PARTICIPANT_ID, new Date(now));
+
+        // then
+        expect(room.timer).toEqual(pausedTimer(expected));
+      },
+    );
+
+    it('단계 종료 예정 시각이 된 방은 일시정지할 수 없다', () => {
+      // given
+      const timer = runningTimer(
+        '2026-10-17T09:00:00.000Z',
+        FOCUS_DURATION_SECONDS,
+      );
+      const room = restoreRoom({
+        mode: ROOM_MODE.FOCUS,
+        currentCycle: 1,
+        timer,
+      });
+      const now = new Date('2026-10-17T09:25:00.000Z');
+
+      // when & then
+      expect(() => room.pausePomodoro(PARTICIPANT_ID, now)).toThrow(
+        ConflictException,
+      );
+      expect(room.timer).toEqual(timer);
+    });
+
+    it.each([
+      { status: 'IDLE', mode: ROOM_MODE.IDLE, createTimer: idleTimer },
+      {
+        status: 'PAUSED',
+        mode: ROOM_MODE.FOCUS,
+        createTimer: () => pausedTimer(600),
+      },
+    ])(
+      '$status 상태의 타이머는 일시정지할 수 없다',
+      ({ mode, createTimer }) => {
+        // given
+        const room = restoreRoom({
+          mode,
+          currentCycle: 1,
+          timer: createTimer(),
+        });
+        const now = new Date('2026-10-17T09:10:00.000Z');
+
+        // when & then
+        expect(() => room.pausePomodoro(PARTICIPANT_ID, now)).toThrow(
+          ConflictException,
+        );
+        expect(room.timer).toEqual(createTimer());
+      },
+    );
+
+    it('방에 없는 참가자는 일시정지할 수 없다', () => {
+      // given
+      const room = restoreRoom({
+        mode: ROOM_MODE.FOCUS,
+        currentCycle: 1,
+        timer: runningTimer('2026-10-17T09:00:00.000Z', FOCUS_DURATION_SECONDS),
+      });
+      const now = new Date('2026-10-17T09:10:00.000Z');
+
+      // when & then
+      expect(() => room.pausePomodoro('unknown-participant', now)).toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('resumePomodoro', () => {
+    it('일시정지 중인 방을 재개하면 모드와 회차는 그대로이고 지금부터 멈춘 남은 시간 뒤에 단계가 끝난다', () => {
+      // given
+      const room = restoreRoom({
+        mode: ROOM_MODE.BREAK,
+        currentCycle: 2,
+        timer: pausedTimer(120),
+      });
+      const now = new Date('2026-10-17T10:00:00.000Z');
+
+      // when
+      room.resumePomodoro(PARTICIPANT_ID, now);
+
+      // then
+      expect(room.mode).toBe(ROOM_MODE.BREAK);
+      expect(room.currentCycle).toBe(2);
+      expect(room.timer).toEqual(runningTimer('2026-10-17T10:00:00.000Z', 120));
+      expect(room.timer.scheduledEndAt()).toEqual(
+        new Date('2026-10-17T10:02:00.000Z'),
+      );
+    });
+
+    it.each([
+      { status: 'IDLE', mode: ROOM_MODE.IDLE, createTimer: idleTimer },
+      {
+        status: 'RUNNING',
+        mode: ROOM_MODE.FOCUS,
+        createTimer: () =>
+          runningTimer('2026-10-17T09:00:00.000Z', FOCUS_DURATION_SECONDS),
+      },
+    ])('$status 상태의 타이머는 재개할 수 없다', ({ mode, createTimer }) => {
+      // given
+      const room = restoreRoom({
+        mode,
+        currentCycle: 1,
+        timer: createTimer(),
+      });
+      const now = new Date('2026-10-17T09:10:00.000Z');
+
+      // when & then
+      expect(() => room.resumePomodoro(PARTICIPANT_ID, now)).toThrow(
+        ConflictException,
+      );
+      expect(room.timer).toEqual(createTimer());
+    });
+
+    it('방에 없는 참가자는 재개할 수 없다', () => {
+      // given
+      const room = restoreRoom({
+        mode: ROOM_MODE.FOCUS,
+        currentCycle: 1,
+        timer: pausedTimer(600),
+      });
+      const now = new Date('2026-10-17T09:10:00.000Z');
+
+      // when & then
+      expect(() => room.resumePomodoro('unknown-participant', now)).toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('finishFocus', () => {
+    it('집중이 끝나면 같은 회차의 휴식이 집중 종료 예정 시각부터 시작된다', () => {
+      // given
+      const room = restoreRoom({
+        mode: ROOM_MODE.FOCUS,
+        currentCycle: 2,
+        timer: runningTimer('2026-10-17T09:00:00.000Z', FOCUS_DURATION_SECONDS),
+      });
+
+      // when
+      room.finishFocus();
+
+      // then
+      expect(room.mode).toBe(ROOM_MODE.BREAK);
+      expect(room.currentCycle).toBe(2);
+      expect(room.timer.status).toBe('RUNNING');
+      expect(room.timer.timerStartedAt).toBe('2026-10-17T09:25:00.000Z');
+      expect(room.timer.remainingTimeSec).toBe(BREAK_DURATION_SECONDS);
+    });
+  });
+
+  describe('finishBreak', () => {
+    it('마지막 회차 전의 휴식이 끝나면 다음 회차 집중이 시작된다 (3회차 휴식 → 4회차 집중)', () => {
+      // given
+      const room = restoreRoom({
+        mode: ROOM_MODE.BREAK,
+        currentCycle: 3,
+        timer: runningTimer('2026-10-17T09:25:00.000Z', BREAK_DURATION_SECONDS),
+      });
+
+      // when
+      room.finishBreak();
+
+      // then
+      expect(room.mode).toBe(ROOM_MODE.FOCUS);
+      expect(room.currentCycle).toBe(4);
+      expect(room.timer.status).toBe('RUNNING');
+      expect(room.timer.timerStartedAt).toBe('2026-10-17T09:30:00.000Z');
+      expect(room.timer.remainingTimeSec).toBe(FOCUS_DURATION_SECONDS);
+    });
+
+    it('마지막 회차 휴식이 끝나면 방은 대기 상태로 돌아가고 회차와 타이머가 처음 상태가 된다', () => {
+      // given
+      const room = restoreRoom({
+        mode: ROOM_MODE.BREAK,
+        currentCycle: CYCLE_COUNT,
+        timer: runningTimer('2026-10-17T10:55:00.000Z', BREAK_DURATION_SECONDS),
+      });
+
+      // when
+      room.finishBreak();
+
+      // then
+      expect(room.mode).toBe(ROOM_MODE.IDLE);
+      expect(room.currentCycle).toBe(0);
+      expect(room.timer.status).toBe('IDLE');
+      expect(room.timer.timerStartedAt).toBeNull();
+      expect(room.timer.remainingTimeSec).toBe(FOCUS_DURATION_SECONDS);
+    });
+  });
+
+  describe('finishFocus / finishBreak', () => {
+    const focusTimer = () =>
+      runningTimer('2026-10-17T09:00:00.000Z', FOCUS_DURATION_SECONDS);
+    const breakTimer = () =>
+      runningTimer('2026-10-17T09:25:00.000Z', BREAK_DURATION_SECONDS);
+
+    it.each([
+      {
+        phase: '집중 종료',
+        mode: ROOM_MODE.BREAK,
+        currentCycle: 1,
+        createTimer: breakTimer,
+        finish: (room: Room) => room.finishFocus(),
+      },
+      {
+        phase: '집중 종료',
+        mode: ROOM_MODE.IDLE,
+        currentCycle: 0,
+        createTimer: idleTimer,
+        finish: (room: Room) => room.finishFocus(),
+      },
+      {
+        phase: '휴식 종료',
+        mode: ROOM_MODE.FOCUS,
+        currentCycle: 1,
+        createTimer: focusTimer,
+        finish: (room: Room) => room.finishBreak(),
+      },
+      {
+        phase: '휴식 종료',
+        mode: ROOM_MODE.IDLE,
+        currentCycle: 0,
+        createTimer: idleTimer,
+        finish: (room: Room) => room.finishBreak(),
+      },
+    ])(
+      '현재 단계가 아닌 단계의 종료는 받아들이지 않는다 ($phase@$mode)',
+      ({ mode, currentCycle, createTimer, finish }) => {
+        // given
+        const room = restoreRoom({ mode, currentCycle, timer: createTimer() });
+
+        // when & then
+        expect(() => finish(room)).toThrow(ConflictException);
+        expect(room.mode).toBe(mode);
+        expect(room.timer).toEqual(createTimer());
+      },
+    );
+  });
+
+  describe('remainingSecondsInPhase', () => {
+    it.each([
+      { now: '2026-10-17T09:20:00.000Z', expected: 300 },
+      { now: '2026-10-17T09:26:00.000Z', expected: 0 },
+    ])(
+      '현재 단계 종료까지 남은 시간은 종료 예정 시각에서 지금을 뺀 값이고, 이미 지났으면 0이다 (now: $now → $expected초)',
+      ({ now, expected }) => {
+        // given
+        const room = restoreRoom({
+          mode: ROOM_MODE.FOCUS,
+          currentCycle: 1,
+          timer: runningTimer(
+            '2026-10-17T09:00:00.000Z',
+            FOCUS_DURATION_SECONDS,
+          ),
+        });
+
+        // when
+        const seconds = room.remainingSecondsInPhase(new Date(now));
+
+        // then
+        expect(seconds).toBe(expected);
+      },
     );
   });
 });

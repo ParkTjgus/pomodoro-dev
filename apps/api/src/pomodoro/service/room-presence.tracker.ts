@@ -1,11 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { LeaveRoomService } from './leave-room.service';
 import { SSE_RETRY_MS } from './sse.service';
 
 const GRACE_PERIOD_MS = SSE_RETRY_MS * 2;
 
 @Injectable()
-export class RoomPresenceTracker {
+export class RoomPresenceTracker implements OnModuleDestroy {
   private readonly graceTimers = new Map<string, NodeJS.Timeout>();
   private readonly connectionCounts = new Map<string, number>();
 
@@ -31,6 +31,11 @@ export class RoomPresenceTracker {
     if (remaining === 0) {
       this.startGraceTimer(roomId, participantId);
     }
+  }
+
+  onModuleDestroy(): void {
+    this.graceTimers.forEach((timer) => clearTimeout(timer));
+    this.graceTimers.clear();
   }
 
   private startGraceTimer(roomId: string, participantId: string): void {
